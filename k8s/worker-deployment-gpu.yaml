@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dpu-worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: dpu-worker
+  template:
+    metadata:
+      labels:
+        app: dpu-worker
+    spec:
+      containers:
+        - name: worker
+          image: yourrepo/dpu-worker:latest
+          env:
+            - name: WORKER_MODE
+              value: "gpu"
+            - name: WRAP_WITH_AES
+              value: "1"
+            - name: STORAGE_ROOT
+              value: "/data/storage"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+          resources:
+            limits:
+              nvidia.com/gpu: 1
+          command: ["rq", "worker", "default", "-u", "redis://redis:6379"]
+          volumeMounts:
+            - mountPath: /data
+              name: storage
+      volumes:
+        - name: storage
+          persistentVolumeClaim:
+            claimName: storage-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: worker-service
+spec:
+  selector:
+    app: dpu-worker
+  ports:
+    - name: http
+      port: 8001
+      targetPort: 8001
